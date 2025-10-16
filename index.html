@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Assignment Tracker for TheocBase</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    
+    <style>
+        /* ========================================
+           ESTILOS BASE Y RESET
+           ======================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* ========================================
+           MENÚ HAMBURGUESA (MÓVIL)
+           ======================================== */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1001;
+            background: #667eea;
+            color: white;
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            font-size: 1.3em;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+        }
+
+        /* ========================================
+           SIDEBAR - ESTRUCTURA PRINCIPAL
+           ======================================== */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.1);
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        /* Encabezado del Sidebar */
+        .sidebar-header {
+            padding: 10px 12px;
+            background: rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.1em;
+            margin-bottom: 1px;
+        }
+
+        .sidebar-header p {
+            font-size: 0.7em;
+            opacity: 0.9;
+        }
+
+        /* Sección de Carga de Base de Datos */
+        .upload-section {
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.15);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .upload-section h3 {
+            font-size: 0.75em;
+            margin-bottom: 4px;
+            opacity: 0.9;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+            min-height: 36px;
+        }
+
+        .upload-btn:active {
+            transform: scale(0.98);
+        }
+
+        .status {
+            margin-top: 4px;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 0.7em;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status.success {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            display: block;
+        }
+
+        /* Header de Filtros */
+        .filter-header {
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .filter-header h3 {
+            font-size: 0.8em;
+            margin-bottom: 4px;
+        }
+
+        .selection-counter {
+            font-size: 0.65em;
+            opacity: 0.9;
+            background: rgba(255,255,255,0.15);
+            padding: 4px 6px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-top: 2px;
+        }
+
+        /* ========================================
+           MENÚ DE ASIGNACIONES
+           ======================================== */
+        .menu-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .menu-container::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .menu-container::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+
+        .menu-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+
+        /* Secciones del Menú */
+        .menu-section {
+            margin-bottom: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 7px 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.1);
+            transition: background 0.2s ease;
+            user-select: none;
+            min-height: 34px;
+        }
+
+        .section-header:active {
+            background: rgba(0,0,0,0.2);
+        }
+
+        .section-title {
+            font-size: 0.8em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .section-icon {
+            transition: transform 0.3s ease;
+            font-size: 0.7em;
+        }
+
+        .section-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            padding: 6px 8px;
+            display: block;
+        }
+
+        .section-content.collapsed {
+            display: none;
+        }
+
+        /* Checkboxes de Asignaciones */
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 4px;
+            margin: 1px 0;
+            border-radius: 5px;
+            transition: background 0.2s ease;
+            cursor: pointer;
+            min-height: 32px;
+        }
+
+        .checkbox-item:active {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .checkbox-item.master {
+            background: rgba(255,255,255,0.15);
+            font-weight: 600;
+            margin-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .checkbox-item label {
+            font-size: 0.75em;
+            cursor: pointer;
+            flex: 1;
+            line-height: 1.2;
+        }
+
+        .checkbox-item.master label {
+            font-size: 0.78em;
+        }
+
+        /* Botones de Acción */
+        .action-buttons {
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.15);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            gap: 6px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 8px 6px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: 36px;
+        }
+
+        .action-btn.primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .action-btn.primary:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .action-btn.secondary {
+            background: rgba(220,53,69,0.9);
+            color: white;
+        }
+
+        .action-btn.secondary:active {
+            background: rgba(220,53,69,1);
+            transform: scale(0.98);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* ========================================
+           ÁREA PRINCIPAL DE CONTENIDO
+           ======================================== */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Encabezado de Contenido */
+        .content-header {
+            background: white;
+            padding: 12px 18px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .content-header h2 {
+            color: #667eea;
+            font-size: 1.1em;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .filters-toggle {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            min-height: 36px;
+            white-space: nowrap;
+        }
+
+        .filters-toggle:active {
+            background: #5568d3;
+            transform: scale(0.98);
+        }
+
+        /* Panel de Filtros Avanzados */
+        .filters-panel {
+            background: white;
+            padding: 12px 18px;
+            border-bottom: 1px solid #e0e0e0;
+            display: none;
+        }
+
+        .filters-panel.active {
+            display: block;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 0.8em;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.8em;
+            background: white;
+            min-height: 36px;
+        }
+
+        /* ========================================
+           CONTENEDOR DE RESULTADOS
+           ======================================== */
+        .results-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 15px;
+            background: #f8f9fa;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .results-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .results-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .results-container::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .results-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        /* Títulos de Grupos */
+        .group-title {
+            color: #667eea;
+            font-size: 1.1em;
+            margin: 20px 0 12px 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .group-title:first-child {
+            margin-top: 0;
+        }
+
+        .count-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        /* ========================================
+           BADGES Y ETIQUETAS
+           ======================================== */
+        .rol-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .rol-titular {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .rol-ayudante {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .sala-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-size: 0.75em;
+            font-weight: 600;
+            background: #e7f3ff;
+            color: #0066cc;
+            white-space: nowrap;
+        }
+
+        /* ========================================
+           TABLA DE RESULTADOS
+           ======================================== */
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 15px;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            font-size: 0.85em;
+            min-width: 600px;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75em;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+
+        tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        tbody tr.row-clickable {
+            cursor: pointer;
+        }
+
+        tbody tr.row-clickable:active {
+            background: #e3f2fd !important;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        /* Celdas de Participaciones */
+        .participaciones-cell {
+            padding: 8px !important;
+        }
+
+        .participacion-item {
+            margin: 4px 0;
+            padding: 6px 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+            font-size: 0.8em;
+        }
+
+        .participacion-item .fecha {
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* Nombre Expandible */
+        .nombre-expand {
+            cursor: pointer;
+            color: #667eea;
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .nombre-expand:active {
+            color: #5568d3;
+        }
+
+        /* Fila de Detalles */
+        .details-row {
+            background: #f8f9fa !important;
+        }
+
+        .details-content {
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            background: white;
+            border-radius: 8px;
+            margin: 10px;
+        }
+
+        .detalle-item {
+            padding: 10px;
+            margin: 8px 0;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.85em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* ========================================
+           ESTADOS Y ALERTAS
+           ======================================== */
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-style: italic;
+            font-size: 1em;
+        }
+
+        .highlight-danger {
+            background: #ffe6e6 !important;
+            border-left: 4px solid #dc3545;
+        }
+
+        .highlight-warning {
+            background: #fff8e1 !important;
+            border-left: 4px solid #ffc107;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 1.3em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 0.95em;
+            color: #999;
+            line-height: 1.5;
+        }
+
+        /* ========================================
+           RESPONSIVE - MÓVIL
+           ======================================== */
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: flex;
+            }
+
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 85%;
+                max-width: 280px;
+                transform: translateX(-100%);
+                z-index: 100;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            .content-header {
+                padding: 10px 10px 10px 55px;
+            }
+
+            .content-header h2 {
+                font-size: 1em;
+            }
+
+            .filters-toggle {
+                padding: 8px 12px;
+                font-size: 0.75em;
+            }
+
+            .filters-panel {
+                padding: 10px;
+            }
+
+            .filters-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .results-container {
+                padding: 8px;
+            }
+
+            .results-card {
+                padding: 10px;
+            }
+
+            .group-title {
+                font-size: 0.95em;
+            }
+
+            table {
+                font-size: 0.75em;
+                min-width: 480px;
+            }
+
+            th, td {
+                padding: 8px 6px;
+            }
+
+            .detalle-item {
+                font-size: 0.75em;
+                padding: 6px;
+            }
+
+            .action-buttons {
+                padding: 8px 10px;
+            }
+        }
+
+        /* ========================================
+           RESPONSIVE - TABLET
+           ======================================== */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .sidebar {
+                width: 300px;
+            }
+
+            .content-header h2 {
+                font-size: 1.2em;
+            }
+        }
+
+        /* ========================================
+           RESPONSIVE - MÓVIL HORIZONTAL
+           ======================================== */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .sidebar {
+                width: 60%;
+            }
+
+            .upload-section,
+            .filter-header,
+            .menu-section {
+                padding: 10px 15px;
+            }
+
+            .section-header {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ========================================
+         ESTRUCTURA HTML
+         ======================================== -->
+    <div class="app-container">
+        <!-- Botón de Menú Hamburguesa -->
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        
+        <!-- Overlay Oscuro -->
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar" id="sidebar">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <h1>📋 Assignment Tracker</h1>
+                <p>for TheocBase v1.0</p>
+            </div>
+
+            <!-- Carga de Base de Datos -->
+            <div class="upload-section">
+                <h3>📂 Base de Datos</h3>
+                <input type="file" id="sqliteInput" accept=".sqlite,.db">
+                <button class="upload-btn" onclick="document.getElementById('sqliteInput').click()">
+                    Cargar SQLite
+                </button>
+                <div class="status" id="status"></div>
+            </div>
+
+            <!-- Header de Filtros -->
+            <div class="filter-header">
+                <h3>🎯 Filtrar Asignaciones</h3>
+                <div class="selection-counter" id="selectionCounter">0 asignaciones seleccionadas</div>
+            </div>
+
+            <!-- Menú de Asignaciones -->
+            <div class="menu-container">
+                <!-- Sección: Tesoros de la Biblia -->
+                <div class="menu-section">
+                    <div class="section-header" onclick="toggleSection('tesoros')">
+                        <span class="section-title">
+                            <span class="section-icon" id="icon-tesoros">▼</span>
+                            📖 TESOROS
+                        </span>
+                    </div>
+                    <div class="section-content" id="content-tesoros">
+                        <div class="checkbox-item master" onclick="clickCheckbox('check-tesoros-all')">
+                            <input type="checkbox" id="check-tesoros-all" onchange="toggleSectionAll('tesoros')" onclick="event.stopPropagation()">
+                            <label for="check-tesoros-all">✓ Todas</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-tesoros-1')">
+                            <input type="checkbox" id="check-tesoros-1" class="check-tesoros" value="20" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-tesoros-1">Discurso 10min</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-tesoros-2')">
+                            <input type="checkbox" id="check-tesoros-2" class="check-tesoros" value="30" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-tesoros-2">Busquemos Perlas</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-tesoros-3')">
+                            <input type="checkbox" id="check-tesoros-3" class="check-tesoros" value="40" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-tesoros-3">Lectura Biblia</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección: Seamos Mejores Maestros -->
+                <div class="menu-section">
+                    <div class="section-header" onclick="toggleSection('maestros')">
+                        <span class="section-title">
+                            <span class="section-icon" id="icon-maestros">▼</span>
+                            🎓 MAESTROS
+                        </span>
+                    </div>
+                    <div class="section-content" id="content-maestros">
+                        <div class="checkbox-item master" onclick="clickCheckbox('check-maestros-all')">
+                            <input type="checkbox" id="check-maestros-all" onchange="toggleSectionAll('maestros')" onclick="event.stopPropagation()">
+                            <label for="check-maestros-all">✓ Todas</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-1')">
+                            <input type="checkbox" id="check-maestros-1" class="check-maestros" value="50,51" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-1">Video</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-2')">
+                            <input type="checkbox" id="check-maestros-2" class="check-maestros" value="60,61,62,63" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-2">1ra Conversación</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-3')">
+                            <input type="checkbox" id="check-maestros-3" class="check-maestros" value="70,71,72" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-3">Revisita</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-4')">
+                            <input type="checkbox" id="check-maestros-4" class="check-maestros" value="80" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-4">2da Revisita</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-5')">
+                            <input type="checkbox" id="check-maestros-5" class="check-maestros" value="90" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-5">Explique Creencias</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-6')">
+                            <input type="checkbox" id="check-maestros-6" class="check-maestros" value="100,101" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-6">Curso Bíblico</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-7')">
+                            <input type="checkbox" id="check-maestros-7" class="check-maestros" value="110" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-7">Discurso 5min</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-maestros-8')">
+                            <input type="checkbox" id="check-maestros-8" class="check-maestros" value="270,271,272" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-maestros-8">Invitación</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección: Vida Cristiana -->
+                <div class="menu-section">
+                    <div class="section-header" onclick="toggleSection('vida')">
+                        <span class="section-title">
+                            <span class="section-icon" id="icon-vida">▼</span>
+                            ❤️ VIDA
+                        </span>
+                    </div>
+                    <div class="section-content" id="content-vida">
+                        <div class="checkbox-item master" onclick="clickCheckbox('check-vida-all')">
+                            <input type="checkbox" id="check-vida-all" onchange="toggleSectionAll('vida')" onclick="event.stopPropagation()">
+                            <label for="check-vida-all">✓ Todas</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-vida-1')">
+                            <input type="checkbox" id="check-vida-1" class="check-vida" value="120,121" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-vida-1">Necesidades Locales</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-vida-2')">
+                            <input type="checkbox" id="check-vida-2" class="check-vida" value="130,131" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-vida-2">Entrevista</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-vida-3')">
+                            <input type="checkbox" id="check-vida-3" class="check-vida" value="140" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-vida-3">Consideración</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección: Privilegios Presidente -->
+                <div class="menu-section">
+                    <div class="section-header" onclick="toggleSection('presidente')">
+                        <span class="section-title">
+                            <span class="section-icon" id="icon-presidente">▼</span>
+                            🎩 PRIVILEGIOS
+                        </span>
+                    </div>
+                    <div class="section-content" id="content-presidente">
+                        <div class="checkbox-item" onclick="clickCheckbox('check-presidente-1')">
+                            <input type="checkbox" id="check-presidente-1" class="check-presidente" value="presidente" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-presidente-1">Presidente Reunión</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-presidente-2')">
+                            <input type="checkbox" id="check-presidente-2" class="check-presidente" value="conductor_atalaya" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-presidente-2">Conductor Estudio Libro</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-presidente-3')">
+                            <input type="checkbox" id="check-presidente-3" class="check-presidente" value="lector_atalaya" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-presidente-3">Lector Estudio Libro</label>
+                        </div>
+                        <div class="checkbox-item" onclick="clickCheckbox('check-presidente-4')">
+                            <input type="checkbox" id="check-presidente-4" class="check-presidente" value="consejero_auxiliar" onchange="updateCounter()" onclick="event.stopPropagation()">
+                            <label for="check-presidente-4">Consejero Sala Auxiliar</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="action-buttons">
+                <button class="action-btn primary" id="btnAplicar" onclick="aplicarFiltros()" disabled>
+                    🔍 Aplicar
+                </button>
+                <button class="action-btn secondary" onclick="limpiarTodo()">
+                    🗑️ Limpiar
+                </button>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="main-content">
+            <!-- Header de Contenido -->
+            <div class="content-header">
+                <h2 id="contentTitle">Selecciona asignaciones</h2>
+                <button class="filters-toggle" onclick="toggleFilters()">🔧 Filtros</button>
+            </div>
+
+            <!-- Panel de Filtros Avanzados -->
+            <div class="filters-panel" id="filtersPanel">
+                <h3 style="margin-bottom: 15px; color: #667eea;">🔧 Filtros Avanzados</h3>
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label>🔍 Buscar Nombre:</label>
+                        <input type="text" id="filterNombre" placeholder="Escribe un nombre..." oninput="aplicarFiltroBusqueda()">
+                    </div>
+                    <div class="filter-group">
+                        <label>⏰ Antigüedad:</label>
+                        <select id="filterMeses">
+                            <option value="1">Último mes</option>
+                            <option value="2">Últimos 2 meses</option>
+                            <option value="3" selected>Últimos 3 meses</option>
+                            <option value="4">Últimos 4 meses</option>
+                            <option value="5">Últimos 5 meses</option>
+                            <option value="6">Últimos 6 meses</option>
+                            <option value="7">Últimos 7 meses</option>
+                            <option value="8">Últimos 8 meses</option>
+			    <option value="9">Últimos 9 meses</option>
+			    <option value="10">Últimos 10 meses</option>
+                            <option value="11">Últimos 11 meses</option>
+                            <option value="12">Últimos 12 meses</option>
+			    <option value="13">Últimos 13 meses</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>👔 Nombramiento:</label>
+                        <select id="filterNombramiento" onchange="aplicarFiltroBusqueda()">
+                            <option value="todos">Todos</option>
+                            <option value="nombrados">Nombrados</option>
+                            <option value="ancianos">Ancianos</option>
+                            <option value="siervos">Siervos</option>
+                            <option value="publicadores">Publicadores</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>👥 Género:</label>
+                        <select id="filterGenero" onchange="aplicarFiltroBusqueda()">
+                            <option value="todos">Todos</option>
+                            <option value="B">Varones</option>
+                            <option value="S">Mujeres</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>📊 Ordenar por Rol:</label>
+                        <select id="sortRol" onchange="aplicarFiltroBusqueda()">
+                            <option value="normal">Normal (sin orden especial)</option>
+                            <option value="titular">↓ Más veces como Publicador</option>
+                            <option value="ayudante">↓ Más veces como Ayudante</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>📊 Ordenar por Sala:</label>
+                        <select id="sortSala" onchange="aplicarFiltroBusqueda()">
+                            <option value="normal">Normal (sin orden especial)</option>
+                            <option value="1">↓ Más veces en Sala Principal</option>
+                            <option value="2">↓ Más veces en Sala Auxiliar (A1)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenedor de Resultados -->
+            <div class="results-container" id="resultsContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <h3>Bienvenido</h3>
+                    <p>Carga la base de datos, selecciona asignaciones y haz clic en "Aplicar"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ========================================
+           CONFIGURACIÓN Y VARIABLES GLOBALES
+           ======================================== */
+        const CONGREGATION_ID = 1;
+        let db = null;
+        let SQL = null;
+        let currentFullData = null;
+        let currentTitle = '';
+
+        /* Mapeo de Talk IDs a Nombres de Asignaciones */
+        const TALK_NAMES = {
+            20: 'Discurso 10min',
+            30: 'Busquemos Perlas',
+            40: 'Lectura Biblia',
+            50: 'Video',
+            51: 'Video Análisis',
+            60: '1ra Conversación',
+            61: '1ra Conv. Video',
+            62: '1ra Conv. Revisita',
+            63: '1ra Conv. Estudio',
+            70: 'Revisita',
+            71: 'Revisita Video',
+            72: 'Revisita Estudio',
+            80: '2da Revisita',
+            90: 'Explique Creencias',
+            100: 'Curso Bíblico',
+            101: 'Curso Video',
+            110: 'Discurso 5min',
+            120: 'Necesidades Local',
+            121: 'Necesidades Discurso',
+            130: 'Entrevista',
+            131: 'Video Entrevista',
+            140: 'Consideración',
+            270: 'Invitación',
+            271: 'Invitación Video',
+            272: 'Invitación Revisita'
+        };
+
+        /* ========================================
+           INICIALIZACIÓN
+           ======================================== */
+        initSqlJs({ 
+            locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` 
+        }).then(sql => {
+            SQL = sql;
+            console.log('✅ SQL.js inicializado correctamente');
+        }).catch(error => {
+            console.error('❌ Error al inicializar SQL.js:', error);
+        });
+
+        /* Carga de Base de Datos */
+        document.getElementById('sqliteInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const status = document.getElementById('status');
+            status.className = 'status';
+            status.textContent = '⏳ Cargando...';
+            status.style.display = 'block';
+            status.style.background = 'rgba(255,255,255,0.15)';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                db = new SQL.Database(uint8Array);
+                
+                status.className = 'status success';
+                status.textContent = '✅ Base de datos cargada';
+                
+                console.log('✅ Base de datos cargada exitosamente');
+            } catch (error) {
+                status.textContent = '❌ Error: ' + error.message;
+                status.style.background = 'rgba(220,53,69,0.8)';
+                console.error('❌ Error al cargar base de datos:', error);
+            }
+        });
+
+        /* ========================================
+           FUNCIONES DE UI - SIDEBAR
+           ======================================== */
+        
+        /**
+         * Alterna la visibilidad del sidebar (móvil)
+         */
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.querySelector('.sidebar-overlay').classList.toggle('active');
+        }
+
+        /**
+         * Expande/colapsa una sección del menú
+         * @param {string} sectionName - Nombre de la sección
+         */
+        function toggleSection(sectionName) {
+            const content = document.getElementById(`content-${sectionName}`);
+            const icon = document.getElementById(`icon-${sectionName}`);
+            content.classList.toggle('collapsed');
+            icon.classList.toggle('collapsed');
+        }
+
+        /**
+         * Simula click en checkbox al tocar su contenedor
+         * @param {string} id - ID del checkbox
+         */
+        function clickCheckbox(id) {
+            const checkbox = document.getElementById(id);
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('change'));
+        }
+
+        /**
+         * Marca/desmarca todos los checkboxes de una sección
+         * @param {string} sectionName - Nombre de la sección
+         */
+        function toggleSectionAll(sectionName) {
+            const masterCheck = document.getElementById(`check-${sectionName}-all`);
+            const childrenChecks = document.querySelectorAll(`.check-${sectionName}`);
+            childrenChecks.forEach(check => check.checked = masterCheck.checked);
+            updateCounter();
+        }
+
+        /**
+         * Actualiza el contador de asignaciones seleccionadas
+         */
+        function updateCounter() {
+            const allChecks = document.querySelectorAll('.menu-container input[type="checkbox"]:not([id$="-all"])');
+            const checkedCount = Array.from(allChecks).filter(c => c.checked).length;
+            
+            document.getElementById('selectionCounter').textContent = 
+                `${checkedCount} asignación${checkedCount !== 1 ? 'es' : ''} seleccionada${checkedCount !== 1 ? 's' : ''}`;
+            
+            document.getElementById('btnAplicar').disabled = checkedCount === 0 || !db;
+        }
+
+        /**
+         * Limpia todos los filtros y checkboxes
+         */
+        function limpiarTodo() {
+            document.querySelectorAll('.menu-container input[type="checkbox"]').forEach(check => check.checked = false);
+            document.getElementById('filterNombre').value = '';
+            document.getElementById('filterNombramiento').value = 'todos';
+            document.getElementById('filterGenero').value = 'todos';
+            document.getElementById('sortRol').value = 'normal';
+            document.getElementById('sortSala').value = 'normal';
+            updateCounter();
+            currentFullData = null;
+            
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <h3>Filtros limpiados</h3>
+                    <p>Selecciona asignaciones y haz clic en "Aplicar"</p>
+                </div>
+            `;
+            document.getElementById('contentTitle').textContent = 'Selecciona asignaciones';
+        }
+
+        /**
+         * Alterna la visibilidad del panel de filtros avanzados
+         */
+        function toggleFilters() {
+            document.getElementById('filtersPanel').classList.toggle('active');
+        }
+
+        /* ========================================
+           FUNCIONES DE FILTRADO
+           ======================================== */
+        
+        /**
+         * Aplica filtros de búsqueda sobre los datos cargados
+         */
+        function aplicarFiltroBusqueda() {
+            if (!currentFullData || currentFullData.length === 0) return;
+            
+            const filterNombreEl = document.getElementById('filterNombre');
+            if (!filterNombreEl) return;
+            
+            const searchTerm = filterNombreEl.value.toLowerCase().trim();
+            const filterNombramiento = document.getElementById('filterNombramiento').value;
+            const filterGenero = document.getElementById('filterGenero').value;
+            const sortRol = document.getElementById('sortRol').value;
+            const sortSala = document.getElementById('sortSala').value;
+
+            let filteredData = currentFullData.filter(row => {
+                // Filtro por nombre
+                if (searchTerm && !row.Nombre.toLowerCase().includes(searchTerm)) {
+                    return false;
+                }
+
+                // Filtro por nombramiento
+                if (filterNombramiento !== 'todos') {
+                    if (filterNombramiento === 'nombrados' && row.Nombramiento === 'Publicador') return false;
+                    if (filterNombramiento === 'ancianos' && row.Nombramiento !== 'Anciano') return false;
+                    if (filterNombramiento === 'siervos' && row.Nombramiento !== 'Siervo Ministerial') return false;
+                    if (filterNombramiento === 'publicadores' && row.Nombramiento !== 'Publicador') return false;
+                }
+
+                // Filtro por género
+                if (filterGenero !== 'todos' && row.Género !== filterGenero) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            // Procesar conteos de Rol y Sala
+            filteredData = filteredData.map(row => {
+                if (!row.Participaciones) return row;
+
+                const participaciones = row.Participaciones.split('||');
+                
+                // Contar por Rol
+                let countTitular = 0;
+                let countAyudante = 0;
+                
+                // Contar por Sala
+                let countSalaPrincipal = 0;
+                let countSalaAuxiliar = 0;
+
+                participaciones.forEach(p => {
+                    const [fecha, rol, sala, talkId, companero] = p.split('|');
+                    
+                    // Contar roles
+                    if (rol === 'Publicador') countTitular++;
+                    if (rol === 'Ayudante') countAyudante++;
+                    
+                    // Contar salas: 1=Principal, 2=Auxiliar
+                    if (sala === '1') countSalaPrincipal++;
+                    else if (sala === '2') countSalaAuxiliar++;
+                });
+
+                return {
+                    ...row,
+                    VecesTitular: countTitular,
+                    VecesAyudante: countAyudante,
+                    VecesSalaPrincipal: countSalaPrincipal,
+                    VecesSalaAuxiliar: countSalaAuxiliar
+                };
+            });
+
+            // Ordenar según selección
+            if (sortRol !== 'normal') {
+                const campo = sortRol === 'titular' ? 'VecesTitular' : 'VecesAyudante';
+                filteredData.sort((a, b) => b[campo] - a[campo]);
+            } else if (sortSala !== 'normal') {
+                const campoMap = {
+                    '1': 'VecesSalaPrincipal',
+                    '2': 'VecesSalaAuxiliar'
+                };
+                const campo = campoMap[sortSala];
+                filteredData.sort((a, b) => b[campo] - a[campo]);
+            }
+
+            displayFilteredResults(currentTitle, filteredData, sortRol, sortSala);
+        }
+
+        /**
+         * Aplica filtros y ejecuta la consulta principal
+         */
+        function aplicarFiltros() {
+            if (!db) {
+                alert('⚠️ Primero carga una base de datos SQLite');
+                return;
+            }
+
+            const talkIds = [];
+            const consultasEspeciales = [];
+            
+            // Recopilar checkboxes seleccionados
+            document.querySelectorAll('.menu-container input[type="checkbox"]:not([id$="-all"]):checked').forEach(check => {
+                const value = check.value;
+                if (value === 'presidente' || value === 'conductor_atalaya' || value === 'lector_atalaya' || value === 'consejero_auxiliar') {
+                    consultasEspeciales.push(value);
+                } else {
+                    talkIds.push(value);
+                }
+            });
+
+            if (talkIds.length === 0 && consultasEspeciales.length === 0) {
+                alert('⚠️ Selecciona al menos una asignación');
+                return;
+            }
+
+            // Cerrar sidebar en móvil
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
+
+            // Manejar consultas especiales
+            if (consultasEspeciales.length > 0 && talkIds.length === 0) {
+                if (consultasEspeciales.includes('presidente')) {
+                    queryPresidente();
+                } else if (consultasEspeciales.includes('conductor_atalaya')) {
+                    queryConductorLibro();
+                } else if (consultasEspeciales.includes('lector_atalaya')) {
+                    queryLectorLibro();
+                } else if (consultasEspeciales.includes('consejero_auxiliar')) {
+                    queryConsejeroAuxiliar();
+                }
+                return;
+            }
+
+            // Construir título dinámico
+            const talkIdsStr = talkIds.join(',');
+            const selectedLabels = [];
+            
+            document.querySelectorAll('.menu-container input[type="checkbox"]:not([id$="-all"]):checked').forEach(check => {
+                if (check.value !== 'presidente' && check.value !== 'oraciones') {
+                    selectedLabels.push(check.nextElementSibling.textContent);
+                }
+            });
+            
+            const titulo = selectedLabels.length > 3 
+                ? `Consulta (${selectedLabels.length} asignaciones)`
+                : `Consulta: ${selectedLabels.join(', ')}`;
+
+            querySeccion(talkIdsStr, titulo);
+        }
+
+        /* ========================================
+           FUNCIONES DE CONSULTA SQL
+           ======================================== */
+        
+        /**
+         * Ejecuta consulta de asignaciones por sección
+         * @param {string} talkIds - IDs de asignaciones separados por coma
+         * @param {string} seccionNombre - Nombre de la sección
+         */
+        function querySeccion(talkIds, seccionNombre) {
+            if (!db) return;
+
+            const meses = parseInt(document.getElementById('filterMeses').value);
+            const filterGenero = document.getElementById('filterGenero').value;
+            const generoFilter = filterGenero !== 'todos' 
+                ? `AND UPPER(p.gender) = '${filterGenero.toUpperCase()}'` 
+                : '';
+            
+            const filterNombramiento = document.getElementById('filterNombramiento').value;
+            let nombramientoFilter = '';
+            
+            if (filterNombramiento === 'nombrados') {
+                nombramientoFilter = 'AND (p.elder = 1 OR p.servant = 1)';
+            } else if (filterNombramiento === 'ancianos') {
+                nombramientoFilter = 'AND p.elder = 1';
+            } else if (filterNombramiento === 'siervos') {
+                nombramientoFilter = 'AND p.servant = 1';
+            } else if (filterNombramiento === 'publicadores') {
+                nombramientoFilter = 'AND p.elder = 0 AND p.servant = 0';
+            }
+
+            const query = `
+                WITH ParticipacionesDetalle AS (
+                    SELECT 
+                        p.id,
+                        p.firstname || ' ' || p.lastname AS Nombre,
+                        CASE 
+                            WHEN p.elder = 1 THEN 'Anciano'
+                            WHEN p.servant = 1 THEN 'Siervo Ministerial'
+                            ELSE 'Publicador'
+                        END AS Nombramiento,
+                        p.gender AS Género,
+                        la.date AS Fecha,
+                        COALESCE(la.classnumber, '-') AS Sala,
+                        CASE 
+                            WHEN la.assignee_id = p.id THEN 'Publicador'
+                            WHEN la.assistant_id = p.id THEN 'Ayudante'
+                        END AS Rol,
+                        ls.talk_id AS TalkID,
+                        CASE 
+                            WHEN la.assignee_id = p.id THEN (SELECT firstname || ' ' || lastname FROM persons WHERE id = la.assistant_id)
+                            WHEN la.assistant_id = p.id THEN (SELECT firstname || ' ' || lastname FROM persons WHERE id = la.assignee_id)
+                        END AS Compañero,
+                        ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY la.date DESC) AS rn
+                    FROM persons p
+                    INNER JOIN lmm_assignment la ON (p.id = la.assignee_id OR p.id = la.assistant_id)
+                    INNER JOIN lmm_schedule ls ON la.lmm_schedule_id = ls.id
+                    WHERE p.active = 1 
+                        AND p.publisher >= 1
+                        AND p.congregation_id = ${CONGREGATION_ID}
+                        AND ls.talk_id IN (${talkIds})
+                        AND la.date >= date('now', '-${meses} months')
+                        ${nombramientoFilter}
+                        ${generoFilter}
+                        AND p.id NOT IN (
+                            SELECT person_id FROM unavailables 
+                            WHERE active = 1 
+                            AND date('now') BETWEEN start_date AND end_date
+                        )
+                )
+                SELECT 
+                    id,
+                    Nombre,
+                    Nombramiento,
+                    Género,
+                    COUNT(*) AS Total,
+                    GROUP_CONCAT(
+                        Fecha || '|' || Rol || '|' || Sala || '|' || TalkID || '|' || COALESCE(Compañero, '-'),
+                        '||'
+                    ) AS Participaciones,
+                    MAX(Fecha) AS Última_Fecha,
+                    CAST(julianday('now') - julianday(MAX(Fecha)) AS INTEGER) AS Días_Última
+                FROM ParticipacionesDetalle
+                WHERE rn <= 50
+                GROUP BY id, Nombre, Nombramiento, Género
+                ORDER BY 
+                    CASE Nombramiento
+                        WHEN 'Anciano' THEN 1
+                        WHEN 'Siervo Ministerial' THEN 2
+                        ELSE 3
+                    END,
+                    Días_Última DESC
+            `;
+
+            const titleConMeses = `${seccionNombre} <span style="color: #dc3545; font-size: 0.9em;">(${meses} ${meses === 1 ? 'mes' : 'meses'})</span>`;
+            executeAndDisplay(query, titleConMeses);
+        }
+
+        /**
+         * Consulta de presidentes de reunión
+         */
+        function queryPresidente() {
+            if (!db) return;
+
+            const meses = parseInt(document.getElementById('filterMeses').value);
+
+            const query = `
+                SELECT 
+                    p.id,
+                    p.firstname || ' ' || p.lastname AS Nombre,
+                    CASE 
+                        WHEN p.elder = 1 THEN 'Anciano'
+                        WHEN p.servant = 1 THEN 'Siervo Ministerial'
+                        ELSE 'Publicador'
+                    END AS Nombramiento,
+                    p.gender AS Género,
+                    COUNT(lm.id) AS Total,
+                    MAX(lm.date) AS Última_Fecha,
+                    CAST(julianday('now') - julianday(MAX(lm.date)) AS INTEGER) AS Días_Última
+                FROM persons p
+                INNER JOIN lmm_meeting lm ON p.id = lm.chairman AND lm.chairman != -1
+                WHERE p.congregation_id = ${CONGREGATION_ID}
+                    AND lm.date >= date('now', '-${meses} months')
+                GROUP BY p.id
+                ORDER BY Total ASC, Días_Última DESC
+            `;
+
+            const titulo = `Presidente de Reunión <span style="color: #dc3545; font-size: 0.9em;">(${meses} ${meses === 1 ? 'mes' : 'meses'})</span>`;
+            executeAndDisplay(query, titulo, true);
+        }
+
+        /**
+         * Consulta de conductor de estudio del libro
+         */
+        function queryConductorLibro() {
+            if (!db) return;
+
+            const meses = parseInt(document.getElementById('filterMeses').value);
+
+            const query = `
+                SELECT 
+                    p.id,
+                    p.firstname || ' ' || p.lastname AS Nombre,
+                    CASE 
+                        WHEN p.elder = 1 THEN 'Anciano'
+                        WHEN p.servant = 1 THEN 'Siervo Ministerial'
+                        ELSE 'Publicador'
+                    END AS Nombramiento,
+                    p.gender AS Género,
+                    COUNT(la.id) AS Total,
+                    MAX(la.date) AS Última_Fecha,
+                    CAST(julianday('now') - julianday(MAX(la.date)) AS INTEGER) AS Días_Última
+                FROM persons p
+                INNER JOIN lmm_assignment la ON p.id = la.assignee_id
+                INNER JOIN lmm_schedule ls ON la.lmm_schedule_id = ls.id
+                WHERE p.congregation_id = ${CONGREGATION_ID}
+                    AND ls.talk_id = 150
+                    AND la.assignee_id != -1
+                    AND la.date >= date('now', '-${meses} months')
+                GROUP BY p.id
+                ORDER BY Total ASC, Días_Última DESC
+            `;
+
+            const titulo = `Conductor Estudio Libro <span style="color: #dc3545; font-size: 0.9em;">(${meses} ${meses === 1 ? 'mes' : 'meses'})</span>`;
+            executeAndDisplay(query, titulo, true);
+        }
+
+        /**
+         * Consulta de lector de estudio del libro
+         */
+        function queryLectorLibro() {
+            if (!db) return;
+
+            const meses = parseInt(document.getElementById('filterMeses').value);
+
+            const query = `
+                SELECT 
+                    p.id,
+                    p.firstname || ' ' || p.lastname AS Nombre,
+                    CASE 
+                        WHEN p.elder = 1 THEN 'Anciano'
+                        WHEN p.servant = 1 THEN 'Siervo Ministerial'
+                        ELSE 'Publicador'
+                    END AS Nombramiento,
+                    p.gender AS Género,
+                    COUNT(la.id) AS Total,
+                    MAX(la.date) AS Última_Fecha,
+                    CAST(julianday('now') - julianday(MAX(la.date)) AS INTEGER) AS Días_Última
+                FROM persons p
+                INNER JOIN lmm_assignment la ON p.id = la.assistant_id
+                INNER JOIN lmm_schedule ls ON la.lmm_schedule_id = ls.id
+                WHERE p.congregation_id = ${CONGREGATION_ID}
+                    AND ls.talk_id = 150
+                    AND la.assistant_id != -1
+                    AND la.date >= date('now', '-${meses} months')
+                GROUP BY p.id
+                ORDER BY Total ASC, Días_Última DESC
+            `;
+
+            const titulo = `Lector Estudio Libro <span style="color: #dc3545; font-size: 0.9em;">(${meses} ${meses === 1 ? 'mes' : 'meses'})</span>`;
+            executeAndDisplay(query, titulo, true);
+        }
+
+        /**
+         * Consulta de consejero para sala auxiliar
+         */
+        function queryConsejeroAuxiliar() {
+            if (!db) return;
+
+            const meses = parseInt(document.getElementById('filterMeses').value);
+
+            const query = `
+                SELECT 
+                    p.id,
+                    p.firstname || ' ' || p.lastname AS Nombre,
+                    CASE 
+                        WHEN p.elder = 1 THEN 'Anciano'
+                        WHEN p.servant = 1 THEN 'Siervo Ministerial'
+                        ELSE 'Publicador'
+                    END AS Nombramiento,
+                    p.gender AS Género,
+                    COUNT(lm.id) AS Total,
+                    MAX(lm.date) AS Última_Fecha,
+                    CAST(julianday('now') - julianday(MAX(lm.date)) AS INTEGER) AS Días_Última
+                FROM persons p
+                INNER JOIN lmm_meeting lm ON (p.id = lm.counselor2 OR p.id = lm.counselor3)
+                WHERE p.congregation_id = ${CONGREGATION_ID}
+                    AND (lm.counselor2 != -1 OR lm.counselor3 != -1)
+                    AND lm.date >= date('now', '-${meses} months')
+                GROUP BY p.id
+                ORDER BY Total ASC, Días_Última DESC
+            `;
+
+            const titulo = `Consejero Sala Auxiliar <span style="color: #dc3545; font-size: 0.9em;">(${meses} ${meses === 1 ? 'mes' : 'meses'})</span>`;
+            executeAndDisplay(query, titulo, true);
+        }
+
+        /**
+         * Ejecuta una consulta SQL y muestra los resultados
+         * @param {string} query - Consulta SQL
+         * @param {string} title - Título de los resultados
+         * @param {boolean} skipFilters - Si es true, muestra directamente sin aplicar filtros
+         */
+        function executeAndDisplay(query, title, skipFilters = false) {
+            try {
+                const result = db.exec(query);
+                
+                if (result.length > 0) {
+                    const data = result[0].values.map(row => {
+                        const obj = {};
+                        result[0].columns.forEach((col, i) => {
+                            obj[col] = row[i];
+                        });
+                        return obj;
+                    });
+                    
+                    if (skipFilters) {
+                        // Para privilegios: mostrar directamente sin filtros de búsqueda
+                        currentFullData = data;
+                        currentTitle = title;
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = title;
+                        const plainTitle = tempDiv.textContent || tempDiv.innerText;
+                        document.getElementById('contentTitle').textContent = plainTitle;
+                        displayFilteredResults(title, data);
+                    } else {
+                        displayResults(title, data);
+                    }
+                } else {
+                    if (skipFilters) {
+                        currentFullData = [];
+                        currentTitle = title;
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = title;
+                        const plainTitle = tempDiv.textContent || tempDiv.innerText;
+                        document.getElementById('contentTitle').textContent = plainTitle;
+                        displayFilteredResults(title, []);
+                    } else {
+                        displayResults(title, []);
+                    }
+                }
+            } catch (error) {
+                alert('❌ Error en consulta: ' + error.message);
+                console.error('Error SQL:', error);
+            }
+        }
+
+        /* ========================================
+           FUNCIONES DE VISUALIZACIÓN
+           ======================================== */
+        
+        /**
+         * Muestra los resultados en pantalla
+         * @param {string} title - Título de los resultados
+         * @param {Array} data - Datos a mostrar
+         */
+        function displayResults(title, data) {
+            currentFullData = data;
+            currentTitle = title;
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = title;
+            const plainTitle = tempDiv.textContent || tempDiv.innerText;
+            document.getElementById('contentTitle').textContent = plainTitle;
+            
+            aplicarFiltroBusqueda();
+        }
+
+        /**
+         * Muestra resultados filtrados
+         * @param {string} title - Título de los resultados
+         * @param {Array} data - Datos filtrados
+         * @param {string} sortRol - Tipo de orden por rol
+         * @param {string} sortSala - Tipo de orden por sala
+         */
+        function displayFilteredResults(title, data, sortRol = 'normal', sortSala = 'normal') {
+            const container = document.getElementById('resultsContainer');
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = `
+                    <div class="results-card">
+                        <div class="no-data">No se encontraron resultados con los filtros aplicados</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const nombrados = data.filter(r => 
+                r.Nombramiento === 'Anciano' || r.Nombramiento === 'Siervo Ministerial'
+            );
+            const publicadores = data.filter(r => r.Nombramiento === 'Publicador');
+            
+            let html = '<div class="results-card">';
+
+            if (nombrados.length > 0) {
+                html += `
+                    <h3 class="group-title">
+                        🎩 NOMBRADOS 
+                        <span class="count-badge">${nombrados.length}</span>
+                    </h3>
+                `;
+                html += createTable(nombrados, sortRol, sortSala);
+            }
+
+            if (publicadores.length > 0) {
+                html += `
+                    <h3 class="group-title">
+                        📖 PUBLICADORES 
+                        <span class="count-badge">${publicadores.length}</span>
+                    </h3>
+                `;
+                html += createTable(publicadores, sortRol, sortSala);
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        /**
+         * Crea una tabla HTML con los datos
+         * @param {Array} data - Datos para la tabla
+         * @param {string} sortRol - Tipo de orden por rol
+         * @param {string} sortSala - Tipo de orden por sala
+         * @returns {string} HTML de la tabla
+         */
+        function createTable(data, sortRol = 'normal', sortSala = 'normal') {
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                const [year, month, day] = dateStr.split('-');
+                return `${day}-${month}-${year.slice(-2)}`;
+            };
+
+            const getSalaName = (salaCode) => {
+                if (salaCode === '1') return 'Principal';
+                if (salaCode === '2') return 'Auxiliar (A1)';
+                return salaCode;
+            };
+
+            // Determinar columnas a mostrar
+            const showRolColumns = sortRol !== 'normal';
+            const showSalaColumns = sortSala !== 'normal';
+            let colspan = 4;
+            
+            if (showRolColumns) colspan += 2;
+            if (showSalaColumns) colspan += 2;
+
+            let html = '<div class="table-wrapper"><table>';
+            html += '<thead><tr>';
+            html += '<th>Nombre</th><th>Total</th>';
+            
+            // Columnas de Rol (si hay ordenamiento activo)
+            if (showRolColumns) {
+                html += '<th>Titular</th>';
+                html += sortRol === 'ayudante' ? '<th>Ayudante ▼</th>' : '<th>Ayudante</th>';
+                if (sortRol === 'titular') {
+                    html = html.replace('<th>Titular</th>', '<th>Titular ▼</th>');
+                }
+            }
+            
+            // Columnas de Sala (si hay ordenamiento activo)
+            if (showSalaColumns) {
+                html += sortSala === '1' ? '<th>Sala Principal ▼</th>' : '<th>Sala Principal</th>';
+                html += sortSala === '2' ? '<th>Sala Auxiliar (A1) ▼</th>' : '<th>Sala Auxiliar (A1)</th>';
+            }
+            
+            html += '<th>Última Participación</th><th>Días</th>';
+            html += '</tr></thead><tbody>';
+
+            data.forEach((row) => {
+                const diasKey = row['Días_Última'] !== undefined ? 'Días_Última' : 'Días_Desde_Última';
+                let rowClass = '';
+                
+                if (row[diasKey] > 90) {
+                    rowClass = 'highlight-danger';
+                } else if (row[diasKey] > 60) {
+                    rowClass = 'highlight-warning';
+                }
+
+                const participaciones = row.Participaciones ? row.Participaciones.split('||') : [];
+                const primeraParticipacion = participaciones[0];
+                const masParticipaciones = participaciones.length > 1;
+                const tieneExpandible = participaciones.length > 0;
+                
+                html += `<tr class="${rowClass} ${tieneExpandible ? 'row-clickable' : ''}" ${tieneExpandible ? `onclick="toggleDetails(${row.id})"` : ''}>`;
+                html += `<td><span class="${tieneExpandible ? 'nombre-expand' : ''}">${row.Nombre} ${masParticipaciones ? '▼' : ''}</span></td>`;
+                html += `<td>${row.Total}</td>`;
+                
+                // Columnas de Rol
+                if (showRolColumns) {
+                    html += `<td>${row.VecesTitular || 0}</td>`;
+                    html += `<td>${row.VecesAyudante || 0}</td>`;
+                }
+                
+                // Columnas de Sala
+                if (showSalaColumns) {
+                    html += `<td>${row.VecesSalaPrincipal || 0}</td>`;
+                    html += `<td>${row.VecesSalaAuxiliar || 0}</td>`;
+                }
+                
+                html += `<td class="participaciones-cell">`;
+                
+                if (primeraParticipacion) {
+                    const [fecha, rol, sala, talkId] = primeraParticipacion.split('|');
+                    const rolClass = rol === 'Publicador' ? 'rol-titular' : 'rol-ayudante';
+                    html += `
+                        <div class="participacion-item">
+                            <span class="fecha">${formatDate(fecha)}</span>, 
+                            <span class="rol-badge ${rolClass}">${rol}</span>, 
+                            <span class="sala-badge">${getSalaName(sala)}</span>
+                        </div>
+                    `;
+                } else if (row.Última_Fecha) {
+                    // Para consultas sin campo Participaciones (privilegios)
+                    html += `<span style="font-weight: 600; color: #333;">${formatDate(row.Última_Fecha)}</span>`;
+                }
+                
+                if (masParticipaciones) {
+                    html += `<small style="color: #667eea; font-weight: 600;">+ ${participaciones.length - 1} más</small>`;
+                }
+                
+                html += `</td>`;
+                html += `<td>${row[diasKey]}</td>`;
+                html += '</tr>';
+                
+                // Fila de detalles expandible (solo si hay participaciones)
+                if (participaciones.length > 0) {
+                    html += `<tr id="details-${row.id}" class="details-row" style="display: none;">`;
+                    html += `<td colspan="${colspan}"><div class="details-content">`;
+                    html += '<strong>📋 Historial Completo:</strong><br>';
+                    
+                    participaciones.forEach((p, index) => {
+                        const [fecha, rol, sala, talkId, companero] = p.split('|');
+                        const asignacion = TALK_NAMES[talkId] || `Talk ${talkId}`;
+                        const rolClass = rol === 'Publicador' ? 'rol-titular' : 'rol-ayudante';
+                        
+                        html += `
+                            <div class="detalle-item">
+                                <strong>${index + 1}.</strong> 
+                                📅 ${formatDate(fecha)} - 
+                                <strong>${asignacion}</strong> 
+                                <span class="rol-badge ${rolClass}">${rol}</span> - 
+                                <span class="sala-badge">${getSalaName(sala)}</span>
+                                ${companero !== '-' ? ` | Con: ${companero}` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div></td></tr>';
+                }
+            });
+
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        /**
+         * Alterna la visualización de detalles de una persona
+         * @param {number} personId - ID de la persona
+         */
+        function toggleDetails(personId) {
+            const row = document.getElementById(`details-${personId}`);
+            const mainRow = row.previousElementSibling;
+            const arrow = mainRow.querySelector('.nombre-expand');
+            
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+                if (arrow && arrow.textContent.includes('▼')) {
+                    arrow.textContent = arrow.textContent.replace('▼', '▲');
+                }
+            } else {
+                row.style.display = 'none';
+                if (arrow && arrow.textContent.includes('▲')) {
+                    arrow.textContent = arrow.textContent.replace('▲', '▼');
+                }
+            }
+        }
+
+        /* ========================================
+           FIN DEL SCRIPT
+           ======================================== */
+        console.log('✅ Sistema TheocBase v6.0 - Listo');
+    </script>
+</body>
+</html>
